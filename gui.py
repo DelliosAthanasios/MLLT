@@ -68,6 +68,7 @@ class TrainingGUI:
         self.train_button = ttk.Button(train_button_frame, text="Start Training", command=self.start_training)
         self.train_button.pack(side=tk.LEFT, padx=(0, 10))
         ttk.Button(train_button_frame, text="Save Model", command=self.save_model).pack(side=tk.LEFT, padx=5)
+        ttk.Button(train_button_frame, text="Save Current Model", command=self.save_current_model).pack(side=tk.LEFT, padx=5)
         ttk.Button(train_button_frame, text="Load Model", command=self.load_model).pack(side=tk.LEFT, padx=5)
         ttk.Button(train_button_frame, text="Open Editor", command=self.open_editor).pack(side=tk.LEFT, padx=5)
         self.progress = ttk.Progressbar(train_frame, length=400, mode='determinate')
@@ -85,6 +86,11 @@ class TrainingGUI:
         self.translator.add_training_example(python_code, c_code)
         self.update_display()
         self.clear_fields()
+        # Autosave training data after adding an example
+        try:
+            self.translator.save_training_data("autosave_training_data.json")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to autosave training data: {str(e)}")
         messagebox.showinfo("Success", "Training example added!")
 
     def clear_fields(self):
@@ -205,6 +211,22 @@ class TrainingGUI:
             messagebox.showwarning("Warning", "Please train or load a model first.")
             return
         EditorGUI(self.translator)
+
+    def save_current_model(self):
+        if self.translator.model is None:
+            messagebox.showwarning("Warning", "No trained model to save.")
+            return
+        filepath = filedialog.asksaveasfilename(
+            title="Save Current Model",
+            defaultextension=".pth",
+            filetypes=[("PyTorch files", "*.pth"), ("All files", "*.*")]
+        )
+        if filepath:
+            try:
+                self.translator.save_model(filepath)
+                messagebox.showinfo("Success", "Current model saved successfully.")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save current model: {str(e)}")
 
     def run(self):
         self.root.mainloop()

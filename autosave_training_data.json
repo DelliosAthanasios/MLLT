@@ -1,0 +1,22 @@
+[
+  {
+    "python": "\"\"\"\nThis is a \nmulti-line comment in Python\n\"\"\"\nprint(\"Comments are ignored by the interpreter.\")",
+    "c": "// This is a single-line comment in C\n\n/*\nThis is a\nmulti-line comment in C\n*/\n#include <stdio.h>\n\nint main() {\n    printf(\"Comments are ignored by the compiler.\\n\");\n    return 0;\n}"
+  },
+  {
+    "python": "x = 10\ny = 5.5\nname = \"Alice\"\nprint(x, y, name)",
+    "c": "#include <stdio.h>\n\nint main() {\n    int x = 10;\n    float y = 5.5;\n    char name[] = \"Alice\";\n\n    printf(\"%d %.1f %s\\n\", x, y, name);\n    return 0;\n}"
+  },
+  {
+    "python": "a = 5         # Integer\nb = 3.14      # Float\nc = \"hello\"   # String\nd = True      # Boolean\n\nprint(type(a), type(b), type(c), type(d))",
+    "c": "#include <stdio.h>\n#include <stdbool.h>\n\nint main() {\n    int a = 5;\n    float b = 3.14f;\n    char c[] = \"hello\";\n    bool d = true;\n\n    printf(\"int: %d\\nfloat: %.2f\\nstring: %s\\nbool: %d\\n\", a, b, c, d);\n    return 0;\n}"
+  },
+  {
+    "python": "PI = 3.14159  # Python doesn't have true constants, but uppercase is a convention\nprint(\"Value of PI:\", PI)",
+    "c": "#include <stdio.h>\n\n#define PI 3.14159  // Preprocessor constant\n\nint main() {\n    const int DAYS_IN_WEEK = 7;  // Constant variable\n    printf(\"PI: %.5f\\nDays in a week: %d\\n\", PI, DAYS_IN_WEEK);\n    return 0;\n}"
+  },
+  {
+    "python": "print(\"Hello, World!\")",
+    "c": "#include <stdio.h>\n\nint main() {\n    printf(\"Hello, World!\\n\");\n    return 0;\n}"
+  }
+]

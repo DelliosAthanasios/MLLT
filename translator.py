@@ -2,9 +2,9 @@ from tokenizer import CodeTokenizer
 from dataset import CodeDataset
 from models import TransformerTranslator
 from metrics import evaluate_bleu, exact_match, levenshtein_distance
+from trainer import ModelTrainer
+from inference import ModelInference
 import torch
-import torch.nn as nn
-import torch.optim as optim
 import json
 
 class CodeTranslator:
@@ -18,6 +18,8 @@ class CodeTranslator:
         self.dropout = dropout
         self.training_data = []
         self.max_length = 512
+        self.trainer = None
+        self.inference = None
     def add_training_example(self, python_code, c_code):
         self.training_data.append((python_code, c_code))
     def clear_training_data(self):
@@ -52,34 +54,15 @@ class CodeTranslator:
             max_length=self.max_length
         )
         dataset = CodeDataset(self.training_data, self.tokenizer)
-        from torch.utils.data import DataLoader
-        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-        criterion = nn.CrossEntropyLoss(ignore_index=self.tokenizer.token_to_id['<PAD>'])
-        optimizer = optim.Adam(self.model.parameters(), lr=learning_rate)
-        self.model.train()
-        for epoch in range(epochs):
-            total_loss = 0
-            for batch_idx, (src, trg) in enumerate(dataloader):
-                optimizer.zero_grad()
-                output = self.model(src, trg[:, :-1])
-                output = output.reshape(-1, self.tokenizer.vocab_size)
-                target = trg[:, 1:].reshape(-1)
-                loss = criterion(output, target)
-                loss.backward()
-                optimizer.step()
-                total_loss += loss.item()
-            avg_loss = total_loss / len(dataloader)
-            if progress_callback:
-                progress_callback(epoch + 1, epochs, avg_loss)
+        self.trainer = ModelTrainer(self.model, dataset, self.tokenizer, batch_size=batch_size, learning_rate=learning_rate, max_length=self.max_length)
+        self.trainer.train(epochs=epochs, progress_callback=progress_callback)
+        self.inference = ModelInference(self.model, self.tokenizer, max_length=self.max_length)
     def translate(self, python_code):
-        if self.model is None:
-            raise ValueError("Model not trained. Call train() first.")
-        tokens = [self.tokenizer.token_to_id['<SOS>']] + self.tokenizer.encode(python_code) + [self.tokenizer.token_to_id['<EOS>']]
-        tokens = tokens[:self.max_length]
-        tokens = tokens + [self.tokenizer.token_to_id['<PAD>']] * (self.max_length - len(tokens))
-        src_tensor = torch.tensor([tokens], dtype=torch.long)
-        result_tokens = self.model.translate(src_tensor, self.tokenizer)
-        return self.tokenizer.decode(result_tokens)
+        if self.inference is None:
+            if self.model is None:
+                raise ValueError("Model not trained. Call train() first.")
+            self.inference = ModelInference(self.model, self.tokenizer, max_length=self.max_length)
+        return self.inference.translate(python_code)
     def save_model(self, filepath):
         if self.model is None:
             raise ValueError("No model to save. Train the model first.")
@@ -107,4 +90,5 @@ class CodeTranslator:
             dropout=params['dropout'],
             max_length=self.max_length
         )
-        self.model.load_state_dict(checkpoint['model_state_dict']) 
+        self.model.load_state_dict(checkpoint['model_state_dict'])
+        self.inference = ModelInference(self.model, self.tokenizer, max_length=self.max_length) 
