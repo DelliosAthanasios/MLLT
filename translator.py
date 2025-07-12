@@ -6,6 +6,8 @@ from trainer import ModelTrainer
 from inference import ModelInference
 import torch
 import json
+import pandas as pd
+import sqlite3
 
 class CodeTranslator:
     """Main class for Python to C code translation"""
@@ -39,6 +41,41 @@ class CodeTranslator:
             return True
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
             return False
+    def save_training_data_csv(self, filepath):
+        """Save training data to a CSV file."""
+        df = pd.DataFrame(self.training_data, columns=['python', 'c'])
+        df.to_csv(filepath, index=False)
+
+    def load_training_data_csv(self, filepath):
+        """Load training data from a CSV file."""
+        try:
+            df = pd.read_csv(filepath)
+            self.training_data = list(df[['python', 'c']].itertuples(index=False, name=None))
+            return True
+        except Exception:
+            return False
+
+    def save_training_data_sqlite(self, db_path):
+        """Save training data to an SQLite database."""
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
+        c.execute('CREATE TABLE IF NOT EXISTS code_pairs (python TEXT, c TEXT)')
+        c.execute('DELETE FROM code_pairs')
+        c.executemany('INSERT INTO code_pairs (python, c) VALUES (?, ?)', self.training_data)
+        conn.commit()
+        conn.close()
+
+    def load_training_data_sqlite(self, db_path):
+        """Load training data from an SQLite database."""
+        try:
+            conn = sqlite3.connect(db_path)
+            c = conn.cursor()
+            c.execute('SELECT python, c FROM code_pairs')
+            self.training_data = c.fetchall()
+            conn.close()
+            return True
+        except Exception:
+            return False
     def train(self, epochs=50, batch_size=4, learning_rate=0.001, progress_callback=None):
         if not self.training_data:
             raise ValueError("No training data available. Add training examples first.")
@@ -66,9 +103,18 @@ class CodeTranslator:
     def save_model(self, filepath):
         if self.model is None:
             raise ValueError("No model to save. Train the model first.")
+        # Ensure we only save a CodeTokenizer instance
+        if not isinstance(self.tokenizer, CodeTokenizer):
+            raise ValueError("Tokenizer is not a CodeTokenizer instance and cannot be saved.")
+        # Save tokenizer state as a dict, not as a pickled object
+        tokenizer_state = {
+            'token_to_id': self.tokenizer.token_to_id,
+            'id_to_token': self.tokenizer.id_to_token,
+            'vocab_size': self.tokenizer.vocab_size
+        }
         torch.save({
             'model_state_dict': self.model.state_dict(),
-            'tokenizer': self.tokenizer,
+            'tokenizer_state': tokenizer_state,
             'model_params': {
                 'embedding_dim': self.embedding_dim,
                 'hidden_size': self.hidden_size,
@@ -77,8 +123,13 @@ class CodeTranslator:
             }
         }, filepath)
     def load_model(self, filepath):
+        import tokenizer  # Ensure tokenizer is imported for safe_globals
         checkpoint = torch.load(filepath, map_location='cpu')
-        self.tokenizer = checkpoint['tokenizer']
+        tokenizer_state = checkpoint['tokenizer_state']
+        self.tokenizer = tokenizer.CodeTokenizer()
+        self.tokenizer.token_to_id = tokenizer_state['token_to_id']
+        self.tokenizer.id_to_token = tokenizer_state['id_to_token']
+        self.tokenizer.vocab_size = tokenizer_state['vocab_size']
         params = checkpoint['model_params']
         self.model = TransformerTranslator(
             vocab_size=self.tokenizer.vocab_size,

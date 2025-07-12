@@ -25,9 +25,9 @@ class TransformerTranslator(nn.Module):
     def forward(self, src, trg):
         src_emb = self.embedding(src) + self.pos_encoder[:, :src.size(1), :]
         trg_emb = self.embedding(trg) + self.pos_decoder[:, :trg.size(1), :]
-        src_key_padding_mask = (src == 0)
-        tgt_key_padding_mask = (trg == 0)
-        tgt_mask = self.transformer.generate_square_subsequent_mask(trg.size(1)).to(trg.device)
+        src_key_padding_mask = (src == 0).bool()
+        tgt_key_padding_mask = (trg == 0).bool()
+        tgt_mask = self.transformer.generate_square_subsequent_mask(trg.size(1)).to(trg.device).bool()
         out = self.transformer(
             src_emb, trg_emb,
             src_key_padding_mask=src_key_padding_mask,
@@ -41,12 +41,12 @@ class TransformerTranslator(nn.Module):
         self.eval()
         with torch.no_grad():
             src_emb = self.embedding(src) + self.pos_encoder[:, :src.size(1), :]
-            src_key_padding_mask = (src == 0)
+            src_key_padding_mask = (src == 0).bool()
             generated = [tokenizer.token_to_id['<SOS>']]
             for _ in range(max_length):
                 trg = torch.tensor([generated], dtype=torch.long, device=src.device)
                 trg_emb = self.embedding(trg) + self.pos_decoder[:, :trg.size(1), :]
-                tgt_mask = self.transformer.generate_square_subsequent_mask(trg.size(1)).to(src.device)
+                tgt_mask = self.transformer.generate_square_subsequent_mask(trg.size(1)).to(src.device).bool()
                 out = self.transformer(
                     src_emb, trg_emb,
                     src_key_padding_mask=src_key_padding_mask,

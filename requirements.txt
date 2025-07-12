@@ -1,3 +1,6 @@
 torch
 nltk
 python-Levenshtein 
+pandas 
+h5py
+pyarrow 

@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext, messagebox, filedialog
 import threading
 from translator import CodeTranslator
+import loading_models
 
 class TrainingGUI:
     """GUI for training the model with user data"""
@@ -108,29 +109,95 @@ class TrainingGUI:
         self.status_label.config(text=f"Training examples: {count}")
 
     def load_data(self):
-        filepath = filedialog.askopenfilename(
-            title="Load Training Data",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
-        )
-        if filepath:
-            if self.translator.load_training_data(filepath):
+        format_options = [
+            ("JSON", ".json"),
+            ("CSV", ".csv"),
+            ("SQLite", ".db"),
+            ("Pickle", ".pkl"),
+            ("HDF5", ".h5"),
+            ("Parquet", ".parquet"),
+            ("Torch", ".pt")
+        ]
+        format_names = [f[0] for f in format_options]
+        format_choice = self.ask_format("Load Data Format", format_names)
+        if format_choice is None:
+            return
+        ext = dict(format_options)[format_choice]
+        filetypes = [(f"{format_choice} files", f"*{ext}"), ("All files", "*.*")]
+        filepath = filedialog.askopenfilename(title="Load Training Data", filetypes=filetypes)
+        if not filepath:
+            return
+        try:
+            if format_choice == "JSON":
+                success = self.translator.load_training_data(filepath)
+            elif format_choice == "CSV":
+                success = self.translator.load_training_data_csv(filepath)
+            elif format_choice == "SQLite":
+                success = self.translator.load_training_data_sqlite(filepath)
+            elif format_choice == "Pickle":
+                self.translator.training_data = loading_models.load_training_data_pickle(filepath)
+                success = True
+            elif format_choice == "HDF5":
+                self.translator.training_data = loading_models.load_training_data_hdf5(filepath)
+                success = True
+            elif format_choice == "Parquet":
+                self.translator.training_data = loading_models.load_training_data_parquet(filepath)
+                success = True
+            elif format_choice == "Torch":
+                self.translator.training_data = loading_models.load_training_data_torch(filepath)
+                success = True
+            else:
+                success = False
+            if success:
                 self.update_display()
                 messagebox.showinfo("Success", f"Loaded {len(self.translator.training_data)} training examples.")
             else:
                 messagebox.showerror("Error", "Failed to load training data.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to load training data: {str(e)}")
 
     def save_data(self):
         if not self.translator.training_data:
             messagebox.showwarning("Warning", "No training data to save.")
             return
-        filepath = filedialog.asksaveasfilename(
-            title="Save Training Data",
-            defaultextension=".json",
-            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
-        )
-        if filepath:
-            self.translator.save_training_data(filepath)
+        format_options = [
+            ("JSON", ".json"),
+            ("CSV", ".csv"),
+            ("SQLite", ".db"),
+            ("Pickle", ".pkl"),
+            ("HDF5", ".h5"),
+            ("Parquet", ".parquet"),
+            ("Torch", ".pt")
+        ]
+        format_names = [f[0] for f in format_options]
+        format_choice = self.ask_format("Save Data Format", format_names)
+        if format_choice is None:
+            return
+        ext = dict(format_options)[format_choice]
+        filetypes = [(f"{format_choice} files", f"*{ext}"), ("All files", "*.*")]
+        filepath = filedialog.asksaveasfilename(title="Save Training Data", defaultextension=ext, filetypes=filetypes)
+        if not filepath:
+            return
+        try:
+            if format_choice == "JSON":
+                self.translator.save_training_data(filepath)
+            elif format_choice == "CSV":
+                self.translator.save_training_data_csv(filepath)
+            elif format_choice == "SQLite":
+                self.translator.save_training_data_sqlite(filepath)
+            elif format_choice == "Pickle":
+                loading_models.save_training_data_pickle(self.translator.training_data, filepath)
+            elif format_choice == "HDF5":
+                loading_models.save_training_data_hdf5(self.translator.training_data, filepath)
+            elif format_choice == "Parquet":
+                loading_models.save_training_data_parquet(self.translator.training_data, filepath)
+            elif format_choice == "Torch":
+                loading_models.save_training_data_torch(self.translator.training_data, filepath)
+            else:
+                raise ValueError("Unknown format")
             messagebox.showinfo("Success", "Training data saved successfully.")
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to save training data: {str(e)}")
 
     def start_training(self):
         if not self.translator.training_data:
@@ -230,6 +297,27 @@ class TrainingGUI:
 
     def run(self):
         self.root.mainloop()
+
+    def ask_format(self, title, options):
+        """Prompt the user to select a format from a list of options."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title(title)
+        dialog.geometry("300x200")
+        var = tk.StringVar(value=options[0])
+        label = ttk.Label(dialog, text="Select format:")
+        label.pack(pady=10)
+        for opt in options:
+            ttk.Radiobutton(dialog, text=opt, variable=var, value=opt).pack(anchor=tk.W)
+        result = {'choice': None}
+        def on_ok():
+            result['choice'] = var.get()
+            dialog.destroy()
+        ok_btn = ttk.Button(dialog, text="OK", command=on_ok)
+        ok_btn.pack(pady=10)
+        dialog.transient(self.root)
+        dialog.grab_set()
+        self.root.wait_window(dialog)
+        return result['choice']
 
 class EditorGUI:
     """GUI for testing translations"""
