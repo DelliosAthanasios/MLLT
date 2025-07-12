@@ -3,6 +3,7 @@ from tkinter import ttk, scrolledtext, messagebox, filedialog
 import threading
 from translator import CodeTranslator
 import loading_models
+import gpu
 
 class TrainingGUI:
     """GUI for training the model with user data"""
@@ -64,6 +65,11 @@ class TrainingGUI:
         ttk.Label(param_frame, text="Learning Rate:").grid(row=0, column=4, sticky=tk.W)
         self.lr_var = tk.StringVar(value="0.001")
         ttk.Entry(param_frame, textvariable=self.lr_var, width=10).grid(row=0, column=5, padx=(5, 0))
+        ttk.Label(param_frame, text="GPU:").grid(row=0, column=6, sticky=tk.W)
+        self.gpu_var = tk.StringVar(value="Auto")
+        gpu_options = ["Auto", "CPU", "CUDA (NVIDIA)", "HIP (AMD/ROCm)", "MPS (Apple)"]
+        self.gpu_menu = ttk.OptionMenu(param_frame, self.gpu_var, "Auto", *gpu_options)
+        self.gpu_menu.grid(row=0, column=7, padx=(5, 0))
         train_button_frame = ttk.Frame(train_frame)
         train_button_frame.grid(row=1, column=0, columnspan=2, pady=(10, 0))
         self.train_button = ttk.Button(train_button_frame, text="Start Training", command=self.start_training)
@@ -210,6 +216,18 @@ class TrainingGUI:
         except ValueError:
             messagebox.showerror("Error", "Please enter valid training parameters.")
             return
+        gpu_setting = self.gpu_var.get()
+        if gpu_setting == "CUDA (NVIDIA)":
+            device = gpu.get_device(force_cuda=True)
+        elif gpu_setting == "HIP (AMD/ROCm)":
+            device = gpu.get_device(force_hip=True)
+        elif gpu_setting == "MPS (Apple)":
+            device = gpu.get_device(force_mps=True)
+        elif gpu_setting == "CPU":
+            device = gpu.get_device(force_cpu=True)
+        else:  # Auto
+            device = gpu.get_device()
+        gpu.print_gpu_info()
         self.train_button.config(state='disabled')
         self.progress['value'] = 0
         self.status_label.config(text="Training in progress...")
@@ -219,7 +237,8 @@ class TrainingGUI:
                     epochs=epochs,
                     batch_size=batch_size,
                     learning_rate=learning_rate,
-                    progress_callback=self.update_progress
+                    progress_callback=self.update_progress,
+                    device=device
                 )
                 self.root.after(0, self.training_complete)
             except Exception as e:

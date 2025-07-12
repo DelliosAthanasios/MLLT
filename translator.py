@@ -8,6 +8,7 @@ import torch
 import json
 import pandas as pd
 import sqlite3
+from gpu import move_model_to_device
 
 class CodeTranslator:
     """Main class for Python to C code translation"""
@@ -76,7 +77,7 @@ class CodeTranslator:
             return True
         except Exception:
             return False
-    def train(self, epochs=50, batch_size=4, learning_rate=0.001, progress_callback=None):
+    def train(self, epochs=50, batch_size=4, learning_rate=0.001, progress_callback=None, device=None):
         if not self.training_data:
             raise ValueError("No training data available. Add training examples first.")
         self.tokenizer.build_vocab(self.training_data)
@@ -90,10 +91,12 @@ class CodeTranslator:
             dropout=self.dropout,
             max_length=self.max_length
         )
+        if device is not None:
+            self.model = move_model_to_device(self.model, device)
         dataset = CodeDataset(self.training_data, self.tokenizer)
-        self.trainer = ModelTrainer(self.model, dataset, self.tokenizer, batch_size=batch_size, learning_rate=learning_rate, max_length=self.max_length)
+        self.trainer = ModelTrainer(self.model, dataset, self.tokenizer, batch_size=batch_size, learning_rate=learning_rate, max_length=self.max_length, device=device)
         self.trainer.train(epochs=epochs, progress_callback=progress_callback)
-        self.inference = ModelInference(self.model, self.tokenizer, max_length=self.max_length)
+        self.inference = ModelInference(self.model, self.tokenizer, max_length=self.max_length, device=device)
     def translate(self, python_code):
         if self.inference is None:
             if self.model is None:
