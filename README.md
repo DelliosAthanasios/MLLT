@@ -1,2 +1,2 @@
 # MLLT
-MachineLEaringLanguageTranslator
+MachineLearningLanguageTranslator
